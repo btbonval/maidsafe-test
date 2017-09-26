@@ -8,9 +8,9 @@
 	var init = function() {
 
 		safeApp.initialise({
-			id: 'pl.robotix.test',
+			id: 'loziniak.test',
 			name: 'Test',
-			vendor: 'Robotix'
+			vendor: 'loziniak'
 		}, (newState) => {
 			console.log("Network state changed to: ", newState);
 		
@@ -43,8 +43,8 @@
 	saveButton.onclick = function() {
 		var homeMDHandle = null;
 
+		// insert new entry
 		var homePermissionsAndEntriesPromise = safeApp.getHomeContainer(app.handle)
-
 		.then((handle) => {
 			homeMDHandle = handle;
 			var homeMDEntriesHandle = null;
@@ -54,6 +54,7 @@
 
 				safeMutableData.getEntries(handle)
 				.then((entriesHandle) => 
+					// commits directly to network
 					safeMutableDataEntries.insert(homeMDEntriesHandle = entriesHandle, 'data1', 'Test1'))
 				.then(() => {
 					console.log('inserted data.');
@@ -62,7 +63,7 @@
 			]);
 		});
 
-
+		// prepare new permission
 		var allowInsertPromise = safeMutableData.newPermissionSet(app.handle)
 		.then((psHandle) => {
 			return safeMutableDataPermissionsSet.setAllow(psHandle, 'Insert')
@@ -73,22 +74,19 @@
 		});
 
 
+		// insert new permission
 		Promise.all([homePermissionsAndEntriesPromise, allowInsertPromise])
 		.then((ret) => {
 			var homePermissions = ret[0][0];
 			var homeEntries = ret[0][1];
 			var allowInsert = ret[1];
-			return safeMutableDataPermissions.insertPermissionsSet(homePermissions, null, allowInsert)
-			.then(() => { 
-				return [homePermissions, homeEntries];
-			});
+			// directly commit to network
+			return safeMutableDataPermissions.insertPermissionsSet(homePermissions, null, allowInsert);
 
-		}).then((ret) => {
-			console.log('inserted permissions.');
-			return safeMutableData.put(homeMDHandle, ret[0], ret[1]);
-
+		// release MD handle
 		}).then(() => {
-			console.log('PUT.');
+			console.log('COMMITED.');
+			safeMutableData.free(homeMDHandle);
 		});
 
 	};
@@ -104,7 +102,7 @@
 		});
 	};
 
-
+	// converts mutable data to simple object usable for logging
 	var md2Obj = function(mdHandle) {
 		var obj = { 
 			handle: mdHandle,
@@ -118,17 +116,20 @@
 		return new Promise((resolve, reject) => {
 			Promise.all([
 
+				// convert name and tag
 				safeMutableData.getNameAndTag(mdHandle)
 				.then((nameAndTag) => {
 					obj.name = nameAndTag.name.buffer.toString();
 					obj.tag = nameAndTag.tag;
 				}),
 
+				// convert version
 				safeMutableData.getVersion(mdHandle)
 				.then((version) => {
 					obj.version = version;
 				}),
 
+				// convert entries
 				safeMutableData.getEntries(mdHandle)
 				.then((entriesHandle) => {
 					obj.entries = [];
@@ -141,6 +142,7 @@
 					}).then(() => safeMutableDataEntries.free(entriesHandle));
 				}),
 
+				// convert permissions
 				safeMutableData.getPermissions(mdHandle)
 				.then((permissionsHandle) => {
 					obj.permissions = [];

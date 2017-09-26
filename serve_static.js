@@ -1,3 +1,8 @@
+/*
+* This node.js code creates http server that serves content of current directory on port 8400.
+* Usage: node serve_static.js
+*/
+
 var _url = require('url');
 var _http = require('http');
 var _fs = require('fs');
@@ -20,8 +25,8 @@ _http.createServer( function (msg, res) {
 
 		var filename = '.'+url.pathname;
 		_fs.exists(filename, function (exists) {
-			var c;
-			if (exists) { // TODO: security, hidden files
+
+			if (exists) {
 
 				try {
 					var fileStream = _fs.createReadStream(filename);
