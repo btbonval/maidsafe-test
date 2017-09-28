@@ -1,38 +1,51 @@
-(function() {
 
-	var app = {
-		authUri: null,
-		handle: null
-	};
+(function() {
+	"use strict"
+
+	var app;
 
 	var init = function() {
 
-		safeApp.initialise({
+		// safeApp.initialise({
+		// 	id: 'loziniak.test',
+		// 	name: 'Test',
+		// 	vendor: 'loziniak'
+		// }, (newState) => {
+		// 	console.log("Network state changed to: ", newState);
+		
+		// }).then((appHandle) => {
+		// 	console.log('SAFEApp instance initialised and handle returned: ', appHandle);
+		// 	app.handle = appHandle;
+
+		// }).then(() => safeApp.authorise(app.handle, {}, {own_container: true})
+
+		// ).then((authUri) => {
+		// 	console.log('authUri: '+authUri);
+		// 	app.authUri = authUri;
+		// 	return safeApp.connectAuthorised(app.handle, app.authUri);
+
+		// }).then((appHandle) => {
+		// 	console.log('appHandle: '+appHandle);
+		// 	console.log('app.handle: '+app.handle);
+		// 	return safeApp.getContainersNames(app.handle);
+
+		// }).then((containers) => {
+		// 	console.log('containers: ' + containers);
+		// });
+
+
+		app = API.initialiseApp({
 			id: 'loziniak.test',
 			name: 'Test',
 			vendor: 'loziniak'
 		}, (newState) => {
 			console.log("Network state changed to: ", newState);
 		
-		}).then((appHandle) => {
-			console.log('SAFEApp instance initialised and handle returned: ', appHandle);
-			app.handle = appHandle;
-
-		}).then(() => safeApp.authorise(app.handle, {}, {own_container: true}))
-
-		.then((authUri) => {
-			console.log('authUri: '+authUri);
-			app.authUri = authUri;
-			return safeApp.connectAuthorised(app.handle, app.authUri);
-
-		}).then((appHandle) => {
-			console.log('appHandle: '+appHandle);
-			console.log('app.handle: '+app.handle);
-			return safeApp.getContainersNames(app.handle);
-
-		}).then((containers) => {
-			console.log('containers: ' + containers);
 		});
+
+		app.authoriseAndConnect({}, {own_container: true});
+
+		app.getContainersNames().then({(containers) => console.log('containers: ' + containers));
 
 	};
 
