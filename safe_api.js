@@ -4,16 +4,24 @@ window.safeAPI = {};
 (function(API) {
 	"use strict"
 
-	var App = class {
+	var HandleSynchronisedSafeObject = class {
 
 		constructor() {
-			this.handle = null; // Promise<SAFEAppHandle>
+			this.handlePromise = null; // Promise<?>
 		}
+
+		then(onFulfilled, onRejected) {
+			return this.handlePromise.then(onFulfilled, onRejected);
+		}
+
+	};
+
+	var App = class extends HandleSynchronisedSafeObject {
 
 		authoriseAndConnect(permissions, options) {
 			var handleLocal = null; // SAFEAppHandle
 
-			this.handle = this.handle.then((appHandle) => {
+			this.handlePromise = this.handlePromise.then((appHandle) => {
 				handleLocal = appHandle;
 				return safeApp.authorise(appHandle, permissions, options);
 			})
@@ -21,59 +29,51 @@ window.safeAPI = {};
 		}
 
 		getContainersNames() {
-			return this.handle.then((appHandle) => safeApp.getContainersNames(appHandle)); // Promise<Array<String>>
+			return this.handlePromise.then((appHandle) => safeApp.getContainersNames(appHandle)); // Promise<Array<String>>
 		}
 
 		getHomeContainer() {
 			var homeContainerMD = new MutableData();
-			homeContainerMD.handle = this.handle.then((appHandle) => safeApp.getHomeContainer(appHandle));
+			homeContainerMD.handlePromise = this.handlePromise.then((appHandle) => safeApp.getHomeContainer(appHandle));
 			return homeContainerMD;
 		}
 
 		newPermissionsSet() {
 			var newSet = new PermissionsSet();
-			newSet.handle = this.handle.then((appHandle) => safeMutableData.newPermissionSet(appHandle));
+			newSet.handlePromise = this.handlePromise.then((appHandle) => safeMutableData.newPermissionSet(appHandle));
 			return newSet;
 		}
 	};
 
-	var MutableData = class {
-
-		constructor() {
-			this.handle = null; // Promise<MutableDataHandle>
-		}
+	var MutableData = class extends HandleSynchronisedSafeObject {
 
 		getPermissions() {
 			var permissions = new Permissions();
-			permissions.handle = this.handle.then((mdHandle) => safeMutableData.getPermissions(mdHandle));
+			permissions.handlePromise = this.handlePromise.then((mdHandle) => safeMutableData.getPermissions(mdHandle));
 			return permissions;
 		}
 
 		getEntries() {
 			var entries = new Entries();
-			entries.handle = this.handle.then((mdHandle) => safeMutableData.getEntries(mdHandle));
+			entries.handlePromise = this.handlePromise.then((mdHandle) => safeMutableData.getEntries(mdHandle));
 			return entries;
 		}
 
 		free() {
-			this.handle.then((mdHandle) => {
+			this.handlePromise.then((mdHandle) => {
 				safeMutableData.free(mdHandle);
-				this.handle = null;
+				this.handlePromise = null;
 			});
 		}
 
 	};
 
-	var Permissions = class {
-
-		constructor() {
-			this.handle = null; // Promise<PermissionsHandle>
-		}
+	var Permissions = class extends HandleSynchronisedSafeObject {
 
 		insertPermissionsSet(signKey, permissionsSet) {
 
-			this.handle = this.handle.then((permHandle) =>  // wait for parameters
-				Promise.all([signKey ? signKey.handle : undefined, permissionsSet.handle], ([skHandle, pSetHandle]) => {
+			this.handlePromise = this.handlePromise.then((permHandle) =>  // wait for parameters
+				Promise.all([signKey ? signKey.handlePromise : undefined, permissionsSet.handlePromise], ([skHandle, pSetHandle]) => {
 
 					safeMutableDataPermissions.insertPermissionsSet(permHandle, skHandle, pSetHandle)
 					.then(() => permHandle);
@@ -83,14 +83,10 @@ window.safeAPI = {};
 
 	};
 
-	var Entries = class {
-
-		constructor() {
-			this.handle = null; // Promise<EntriesHandle>
-		}
+	var Entries = class extends HandleSynchronisedSafeObject {
 
 		insert(keyName, value) {
-			this.handle = this.handle.then((entriesHandle) => {
+			this.handlePromise = this.handlePromise.then((entriesHandle) => {
 				safeMutableDataEntries.insert(entriesHandle, keyName, value).then(() => {
 					return entriesHandle;
 				})
@@ -99,24 +95,16 @@ window.safeAPI = {};
 
 	};
 
-	var PermissionsSet = class {
-
-		constructor() {
-			this.handle = null; // Promise<PermissionsSetHandle>
-		}
+	var PermissionsSet = class extends HandleSynchronisedSafeObject {
 
 		setAllow(action) {
-			this.handle = this.handle.then((pSetHandle) => safeMutableDataPermissionsSet.setAllow(pSetHandle, action)
+			this.handlePromise = this.handlePromise.then((pSetHandle) => safeMutableDataPermissionsSet.setAllow(pSetHandle, action)
 				.then(() => pSetHandle));
 		}
 
 	};
 
-	var SignKey = class {
-
-		constructor() {
-			this.handle = null; // Promise<SignKeyHandle>
-		}
+	var SignKey = class extends HandleSynchronisedSafeObject {
 
 	};
 
@@ -125,7 +113,7 @@ window.safeAPI = {};
 
 		var app = new App();
 
-		app.handle = safeApp.initialise(appInfo, networkStateCallback, enableLog)
+		app.handlePromise = safeApp.initialise(appInfo, networkStateCallback, enableLog)
 		.then((appHandle) => {
 			console.log('SAFEApp instance initialised and handle returned: ', appHandle); // DEBUG
 			return appHandle;

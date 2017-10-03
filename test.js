@@ -30,15 +30,15 @@
 
 		var homeEntries = homeContainer.getEntries();
 		homeEntries.insert('data1', 'Test1');
-		homeEntries.handle.then((entHandle) => console.log('inserted data.')); // TODO: get rid of direct ".handle" access.
+		homeEntries.then(() => console.log('inserted data.'));
 
 		var allowInsert = app.newPermissionsSet();
 		allowInsert.setAllow('Insert');
-		allowInsert.handle.then((psHandle) => console.log('psHandle: '+psHandle)); // TODO: get rid of direct ".handle" access.
+		allowInsert.then((psHandle) => console.log('psHandle: '+psHandle));
 
 		var homePermissions = homeContainer.getPermissions();
 		homePermissions.insertPermissionsSet(null, allowInsert);
-		homePermissions.handle.then((permHandle) => console.log('COMMITED.')); // TODO: get rid of direct ".handle" access.
+		homePermissions.then(() => console.log('COMMITED.'));
 
 		homeContainer.free();
 	};
