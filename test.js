@@ -6,35 +6,7 @@
 
 	var init = function() {
 
-		// safeApp.initialise({
-		// 	id: 'loziniak.test',
-		// 	name: 'Test',
-		// 	vendor: 'loziniak'
-		// }, (newState) => {
-		// 	console.log("Network state changed to: ", newState);
-		
-		// }).then((appHandle) => {
-		// 	console.log('SAFEApp instance initialised and handle returned: ', appHandle);
-		// 	app.handle = appHandle;
-
-		// }).then(() => safeApp.authorise(app.handle, {}, {own_container: true})
-
-		// ).then((authUri) => {
-		// 	console.log('authUri: '+authUri);
-		// 	app.authUri = authUri;
-		// 	return safeApp.connectAuthorised(app.handle, app.authUri);
-
-		// }).then((appHandle) => {
-		// 	console.log('appHandle: '+appHandle);
-		// 	console.log('app.handle: '+app.handle);
-		// 	return safeApp.getContainersNames(app.handle);
-
-		// }).then((containers) => {
-		// 	console.log('containers: ' + containers);
-		// });
-
-
-		app = API.initialiseApp({
+		app = safeAPI.initialiseApp({
 			id: 'loziniak.test',
 			name: 'Test',
 			vendor: 'loziniak'
@@ -45,7 +17,7 @@
 
 		app.authoriseAndConnect({}, {own_container: true});
 
-		app.getContainersNames().then({(containers) => console.log('containers: ' + containers));
+		app.getContainersNames().then((containers) => console.log('containers: ' + containers));
 
 	};
 
@@ -54,55 +26,23 @@
 	var messageDisplay = document.getElementById('msg');
 
 	saveButton.onclick = function() {
-		var homeMDHandle = null;
+		var homeContainer = app.getHomeContainer();
 
-		// insert new entry
-		var homePermissionsAndEntriesPromise = safeApp.getHomeContainer(app.handle)
-		.then((handle) => {
-			homeMDHandle = handle;
-			var homeMDEntriesHandle = null;
-			
-			return Promise.all([
-				safeMutableData.getPermissions(handle),
+		var homeEntries = homeContainer.getEntries();
+		homeEntries.insert('data1', 'Test1');
+		homeEntries.handle.then((entHandle) => console.log('inserted data.')); // TODO: get rid of direct ".handle" access.
 
-				safeMutableData.getEntries(handle)
-				.then((entriesHandle) => 
-					// commits directly to network
-					safeMutableDataEntries.insert(homeMDEntriesHandle = entriesHandle, 'data1', 'Test1'))
-				.then(() => {
-					console.log('inserted data.');
-					return homeMDEntriesHandle;
-				})
-			]);
-		});
+		var allowInsert = app.newPermissionsSet();
+		allowInsert.setAllow('Insert');
+		allowInsert.handle.then((psHandle) => console.log('psHandle: '+psHandle)); // TODO: get rid of direct ".handle" access.
 
-		// prepare new permission
-		var allowInsertPromise = safeMutableData.newPermissionSet(app.handle)
-		.then((psHandle) => {
-			return safeMutableDataPermissionsSet.setAllow(psHandle, 'Insert')
-			.then(() => {
-				console.log('psHandle: '+psHandle);
-				return psHandle;
-			});
-		});
+		var homePermissions = homeContainer.getPermissions();
+		homePermissions.insertPermissionsSet(null, allowInsert);
+		homePermissions.handle.then((permHandle) => console.log('COMMITED.')); // TODO: get rid of direct ".handle" access.
 
-
-		// insert new permission
-		Promise.all([homePermissionsAndEntriesPromise, allowInsertPromise])
-		.then((ret) => {
-			var homePermissions = ret[0][0];
-			var homeEntries = ret[0][1];
-			var allowInsert = ret[1];
-			// directly commit to network
-			return safeMutableDataPermissions.insertPermissionsSet(homePermissions, null, allowInsert);
-
-		// release MD handle
-		}).then(() => {
-			console.log('COMMITED.');
-			safeMutableData.free(homeMDHandle);
-		});
-
+		homeContainer.free();
 	};
+
 
 	readButton.onclick = function() {
 		safeApp.getHomeContainer(app.handle)
