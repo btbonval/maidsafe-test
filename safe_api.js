@@ -28,13 +28,13 @@ window.safeAPI = {};
 			.then((authUri) => safeApp.connectAuthorised(handleLocal, authUri));
 		}
 
-		getContainersNames() {
-			return this.handlePromise.then((appHandle) => safeApp.getContainersNames(appHandle)); // Promise<Array<String>>
+		getContainersPermissions() {
+			return this.handlePromise.then((appHandle) => safeApp.getContainersPermissions(appHandle)); // Promise<Array<ContainerPerms>>
 		}
 
-		getHomeContainer() {
+		getOwnContainer() {
 			var homeContainerMD = new MutableData();
-			homeContainerMD.handlePromise = this.handlePromise.then((appHandle) => safeApp.getHomeContainer(appHandle));
+			homeContainerMD.handlePromise = this.handlePromise.then((appHandle) => safeApp.getOwnContainer(appHandle));
 			return homeContainerMD;
 		}
 

@@ -17,7 +17,7 @@
 
 		app.authoriseAndConnect({}, {own_container: true});
 
-		app.getContainersNames().then((containers) => console.log('containers: ' + containers));
+		app.getContainersPermissions().then((containers) => console.log(containers));
 
 	};
 
@@ -26,7 +26,7 @@
 	var messageDisplay = document.getElementById('msg');
 
 	saveButton.onclick = function() {
-		var homeContainer = app.getHomeContainer();
+		var homeContainer = app.getOwnContainer();
 
 		var homeEntries = homeContainer.getEntries();
 		homeEntries.insert('data1', 'Test1');
@@ -40,13 +40,13 @@
 		homePermissions.insertPermissionsSet(null, allowInsert);
 		homePermissions.then(() => console.log('permissions set.'));
 
-		homeContainer.put(homePermissions, homeEntries)
+		homeContainer.put(homePermissions, homeEntries);
 		homeContainer.then(() => console.log('COMMITED.'));
 	};
 
 
 	readButton.onclick = function() {
-		app.getHomeContainer()
+		app.getOwnContainer()
 		.then((mdHandle) => md2Obj(mdHandle))
 		.then((mdObj) => {
 			console.log(mdObj);

@@ -6,6 +6,4 @@ Serve contents of the directory locally using your favorite server. You can use 
 
 You will be asked to authorize this test app to user Safe Network. "Save" button saves a new entry to your home container. "Read" button reads your home container from networ and logs it to the console as a simple object.
 
-Compatible with [0.1.0-dev.1 version of API](https://github.com/maidsafe/beaker-plugin-safe-app/tree/0.1.0-dev.1) (test18 network).
-
-[API v0.1.0 @ Internet Archive](http://web.archive.org/web/20170625234259/http://docs.maidsafe.net/beaker-plugin-safe-app/)
+Compatible with [0.3.0 version of API](http://docs.maidsafe.net/beaker-plugin-safe-app/) (alpha2 network).
