@@ -59,6 +59,14 @@ window.safeAPI = {};
 			return entries;
 		}
 
+		put(permissions, entries) {
+			this.handlePromise = Promise.all([this.handlePromise, permissions.handlePromise, entries.handlePromise],
+				([mdHandle, permHandle, entriesHandle]) => {
+					safeMutableData.put(mdHandle, permHandle, entriesHandle)
+					.then(() => mdHandle);
+				});
+		}
+
 		free() {
 			this.handlePromise.then((mdHandle) => {
 				safeMutableData.free(mdHandle);
@@ -75,6 +83,7 @@ window.safeAPI = {};
 			this.handlePromise = this.handlePromise.then((permHandle) =>  // wait for parameters
 				Promise.all([signKey ? signKey.handlePromise : undefined, permissionsSet.handlePromise], ([skHandle, pSetHandle]) => {
 
+					console.log('skHandle:'+skHandle);
 					safeMutableDataPermissions.insertPermissionsSet(permHandle, skHandle, pSetHandle)
 					.then(() => permHandle);
 				})

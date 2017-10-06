@@ -38,17 +38,16 @@
 
 		var homePermissions = homeContainer.getPermissions();
 		homePermissions.insertPermissionsSet(null, allowInsert);
-		homePermissions.then(() => console.log('COMMITED.'));
+		homePermissions.then(() => console.log('permissions set.'));
 
-		homeContainer.free();
+		homeContainer.put(homePermissions, homeEntries)
+		homeContainer.then(() => console.log('COMMITED.'));
 	};
 
 
 	readButton.onclick = function() {
-		safeApp.getHomeContainer(app.handle)
-
-		.then((handle) => md2Obj(handle))
-
+		app.getHomeContainer()
+		.then((mdHandle) => md2Obj(mdHandle))
 		.then((mdObj) => {
 			console.log(mdObj);
 			safeMutableData.free(mdObj.handle);
