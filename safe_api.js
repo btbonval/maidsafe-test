@@ -43,6 +43,7 @@ window.safeAPI = {};
 			newSet.handlePromise = this.handlePromise.then((appHandle) => safeMutableData.newPermissionSet(appHandle));
 			return newSet;
 		}
+
 	};
 
 	var MutableData = class extends HandleSynchronisedSafeObject {
@@ -60,11 +61,9 @@ window.safeAPI = {};
 		}
 
 		put(permissions, entries) {
-			this.handlePromise = Promise.all([this.handlePromise, permissions.handlePromise, entries.handlePromise],
-				([mdHandle, permHandle, entriesHandle]) => {
-					safeMutableData.put(mdHandle, permHandle, entriesHandle)
-					.then(() => mdHandle);
-				});
+			this.handlePromise = Promise.all([this.handlePromise, permissions.handlePromise, entries.handlePromise])
+				.then(([mdHandle, permHandle, entriesHandle]) => safeMutableData.put(mdHandle, permHandle, entriesHandle)
+					.then(() => mdHandle));
 		}
 
 		free() {
@@ -80,26 +79,22 @@ window.safeAPI = {};
 
 		insertPermissionsSet(signKey, permissionsSet) {
 
-			this.handlePromise = this.handlePromise.then((permHandle) =>  // wait for parameters
-				Promise.all([signKey ? signKey.handlePromise : undefined, permissionsSet.handlePromise], ([skHandle, pSetHandle]) => {
+			this.handlePromise = Promise.all([this.handlePromise, signKey ? signKey.handlePromise : null, permissionsSet.handlePromise])
+				.then(([permHandle, skHandle, pSetHandle]) => {
 
 					console.log('skHandle:'+skHandle);
-					safeMutableDataPermissions.insertPermissionsSet(permHandle, skHandle, pSetHandle)
-					.then(() => permHandle);
-				})
-			);
+					return safeMutableDataPermissions.insertPermissionsSet(permHandle, skHandle, pSetHandle)
+						.then(() => permHandle);
+				});
 		}
 
 	};
 
 	var Entries = class extends HandleSynchronisedSafeObject {
 
-		insert(keyName, value) {
-			this.handlePromise = this.handlePromise.then((entriesHandle) => {
-				safeMutableDataEntries.insert(entriesHandle, keyName, value).then(() => {
-					return entriesHandle;
-				})
-			});
+		insert(key, value) {
+			this.handlePromise = this.handlePromise.then((entriesHandle) => safeMutableDataEntries.insert(entriesHandle, key, value)
+				.then(() => entriesHandle));
 		}
 
 	};
