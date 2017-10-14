@@ -39,9 +39,6 @@
 		var homePermissions = homeContainer.getPermissions();
 		homePermissions.insertPermissionsSet(null, allowInsert);
 		homePermissions.then(() => console.log('permissions set.'));
-
-		homeContainer.put(homePermissions, homeEntries);
-		homeContainer.then(() => console.log('COMMITED.'));
 	};
 
 
