@@ -44,6 +44,12 @@ window.safeAPI = {};
 			return newSet;
 		}
 
+		newMutation() {
+			var newMut = new Mutation();
+			newMut.handlePromise = this.handlePromise.then((appHandle) => safeMutableData.newMutation(appHandle));
+			return newMut;
+		}
+
 	};
 
 	var MutableData = class extends HandleSynchronisedSafeObject {
@@ -58,6 +64,12 @@ window.safeAPI = {};
 			var entries = new Entries();
 			entries.handlePromise = this.handlePromise.then((mdHandle) => safeMutableData.getEntries(mdHandle));
 			return entries;
+		}
+
+		applyEntriesMutation(mutation) {
+			this.handlePromise = Promise.all([this.handlePromise, mutation.handlePromise])
+				.then(([mdHandle, mutHandle]) => safeMutableData.applyEntriesMutation(mdHandle, mutHandle)
+					.then(() => mdHandle));
 		}
 
 		put(permissions, entries) {
@@ -104,6 +116,15 @@ window.safeAPI = {};
 		setAllow(action) {
 			this.handlePromise = this.handlePromise.then((pSetHandle) => safeMutableDataPermissionsSet.setAllow(pSetHandle, action)
 				.then(() => pSetHandle));
+		}
+
+	};
+
+	var Mutation = class extends HandleSynchronisedSafeObject {
+
+		insert(key, value) {
+			this.handlePromise = this.handlePromise.then((mutHandle) => safeMutableDataMutation.insert(mutHandle, key, value)
+				.then(() => mutHandle));
 		}
 
 	};

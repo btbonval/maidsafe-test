@@ -28,9 +28,15 @@
 	saveButton.onclick = function() {
 		var homeContainer = app.getOwnContainer();
 
-		var homeEntries = homeContainer.getEntries();
-		homeEntries.insert('data1', 'Test1');
-		homeEntries.then(() => console.log('inserted data.'));
+		// var homeEntries = homeContainer.getEntries();
+		// homeEntries.insert('data1', 'Test1');
+		// homeEntries.then(() => console.log('inserted data.'));
+
+		var insertData = app.newMutation();
+		insertData.insert('data1', 'Test1');
+		homeContainer.applyEntriesMutation(insertData);
+		homeContainer.then(() => console.log('inserted data.'));
+
 
 		var allowInsert = app.newPermissionsSet();
 		allowInsert.setAllow('Insert');
