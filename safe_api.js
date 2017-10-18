@@ -11,7 +11,31 @@ window.safeAPI = {};
 		}
 
 		then(onFulfilled, onRejected) {
-			return this.handlePromise.then(onFulfilled, onRejected);
+			this.handlePromise = this.handlePromise.then(onFulfilled, onRejected);
+			return this;
+		}
+
+		catch(onRejected) {
+			this.handlePromise = this.handlePromise.catch(onRejected);
+			return this;
+		}
+
+	};
+
+	var HandleSynchronisedSafeChild = class {
+
+		constructor(parent) {
+			this.parent = parent;
+		}
+
+		then(onFulfilled, onRejected) {
+			this.parent.then(onFulfilled, onRejected);
+			return this;
+		}
+
+		catch(onRejected) {
+			this.parent.catch(onRejected);
+			return this;
 		}
 
 	};
@@ -19,13 +43,14 @@ window.safeAPI = {};
 	var App = class extends HandleSynchronisedSafeObject {
 
 		authoriseAndConnect(permissions, options) {
-			var handleLocal = null; // SAFEAppHandle
+			this.handleLocal = null; // SAFEAppHandle
 
-			this.handlePromise = this.handlePromise.then((appHandle) => {
-				handleLocal = appHandle;
+			return this.then((appHandle) => {
+				this.handleLocal = appHandle;
 				return safeApp.authorise(appHandle, permissions, options);
 			})
-			.then((authUri) => safeApp.connectAuthorised(handleLocal, authUri));
+			.then((authUri) => safeApp.connectAuthorised(this.handleLocal, authUri))
+			.then(_ => safeApp.refreshContainersPermissions(this.handleLocal));
 		}
 
 		getContainersPermissions() {
@@ -33,7 +58,7 @@ window.safeAPI = {};
 		}
 
 		getOwnContainer() {
-			var homeContainerMD = new MutableData();
+			var homeContainerMD = new MutableData(this);
 			homeContainerMD.handlePromise = this.handlePromise.then((appHandle) => safeApp.getOwnContainer(appHandle));
 			return homeContainerMD;
 		}
@@ -43,9 +68,40 @@ window.safeAPI = {};
 			newSet.handlePromise = this.handlePromise.then((appHandle) => safeMutableData.newPermissionSet(appHandle));
 			return newSet;
 		}
+
+		quickRandomPublic(data) {
+			//  looks like this does not get changed?
+			const typeTag = 15000;
+
+			var publicMD = new MutableData(this);
+			console.log('new publicMD: ', publicMD);
+			this.then(_ => safeMutableData.newRandomPublic(this.handleLocal, typeTag))
+			.then((mdata) => {
+				console.log('Random MD handle: ', mdata);
+				publicMD.mdHandle = mdata;
+				return safeMutableData.quickSetup(mdata, data);
+			})
+			.then(_ => {
+				console.log('MD handle was setup: ', publicMD.mdHandle);
+				return publicMD.mdHandle;
+			});
+			return publicMD;
+		}
+
+		free() {
+			this.then(_ => {
+				if ((this.handleLocal != undefined) && (this.handleLocal != null)) {
+					safeApp.free(this.handleLocal);
+					console.log('App handle freed: ', this.handleLocal);
+				}
+				this.handleLocal = undefined;
+				this.handlePromise = null;
+				console.log('App.free() completed');
+			});
+		}
 	};
 
-	var MutableData = class extends HandleSynchronisedSafeObject {
+	var MutableData = class extends HandleSynchronisedSafeChild {
 
 		getPermissions() {
 			var permissions = new Permissions();
@@ -67,10 +123,41 @@ window.safeAPI = {};
 				});
 		}
 
+		getString(key) {
+			return this.then(_ => {
+				console.log('Fetching key from handle: ', key, this.mdHandle);
+				return safeMutableData.get(this.mdHandle, key);
+			})
+			.then((val) => {
+				return val.buf.toString();
+			});
+		}
+
 		free() {
-			this.handlePromise.then((mdHandle) => {
-				safeMutableData.free(mdHandle);
-				this.handlePromise = null;
+			this.then((mdHandle) => {
+				// Nothing to do if no handles are provided
+				if ((mdHandle === undefined) && (this.mdHandle === undefined)) {
+					console.log('No MD to free.');
+				};
+				// only this.mdHandle is defined, clear it.
+				if ((mdHandle === undefined) && (this.mdHandle != undefined)) {
+					safeMutableData.free(this.mdHandle);
+					console.log('Freed MD: ', this.mdHandle);
+					this.mdHandle = undefined;
+				};
+				// only mdHandle is defined, clear it.
+				if ((mdHandle != undefined) && (this.mdHandle === undefined)) {
+					safeMutableData.free(mdHandle);
+					console.log('Freed MD: ', mdHandle);
+				};
+				// both are defined and equal, clear both.
+				if ((mdHandle != undefined) && (this.mdHandle != undefined) && (mdHandle == this.mdHandle)) {
+					safeMutableData.free(mdHandle);
+					this.mdHandle = undefined;
+					console.log('Freed MD: ', mdHandle);
+				};
+				// if both are defined and different, unclear how to proceed.
+				if ((mdHandle != undefined) && (this.mdHandle != undefined) && (mdHandle != this.mdHandle)) throw 'Cannot decide which handle to free!';
 			});
 		}
 
@@ -122,8 +209,8 @@ window.safeAPI = {};
 
 		var app = new App();
 
-		app.handlePromise = safeApp.initialise(appInfo, networkStateCallback, enableLog)
-		.then((appHandle) => {
+		app.handlePromise = safeApp.initialise(appInfo, networkStateCallback, enableLog);
+		app.then((appHandle) => {
 			console.log('SAFEApp instance initialised and handle returned: ', appHandle); // DEBUG
 			return appHandle;
 		});
