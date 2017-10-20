@@ -6,8 +6,9 @@ window.safeAPI = {};
 
 	var HandleSynchronisedSafeObject = class {
 
-		constructor() {
-			this.handlePromise = null; // Promise<?>
+		constructor(handle, promise) {
+			this.handle = handle;
+			this.handlePromise = promise;
 		}
 
 		then(onFulfilled, onRejected) {
@@ -20,11 +21,28 @@ window.safeAPI = {};
 			return this;
 		}
 
+		all(list) {
+			return this.then(_ => Promise.all(list));
+		}
+
+		free() {
+			this.then(_ => {
+				if ((this.handle != undefined) && (this.handle != null)) {
+					safeApp.free(this.handle);
+					console.log('App handle freed: ', this.handle);
+				};
+				this.handle = undefined;
+				this.handlePromise = null;
+				console.log('App.free() completed');
+			});
+		}
+
 	};
 
 	var HandleSynchronisedSafeChild = class {
 
-		constructor(parent) {
+		constructor(handle, parent) {
+			this.handle = handle;
 			this.parent = parent;
 		}
 
@@ -38,196 +56,193 @@ window.safeAPI = {};
 			return this;
 		}
 
+		all(list) {
+			return this.then(_ => Promise.all(list));
+		}
+
+		free() {
+			this.then(_ => {
+				if ((this.handle != undefined) && (this.handle != null)) {
+					safeApp.free(this.handle);
+					console.log('handle freed: ', this.handle);
+				};
+				this.handle = undefined;
+				console.log('free() completed');
+			});
+		}
+
 	};
 
 	var App = class extends HandleSynchronisedSafeObject {
 
 		authoriseAndConnect(permissions, options) {
-			this.handleLocal = null; // SAFEAppHandle
-
-			return this.then((appHandle) => {
-				this.handleLocal = appHandle;
-				return safeApp.authorise(appHandle, permissions, options);
+			return this.then(_ => {
+				return safeApp.authorise(this.handle, permissions, options);
 			})
-			.then((authUri) => safeApp.connectAuthorised(this.handleLocal, authUri))
-			.then(_ => safeApp.refreshContainersPermissions(this.handleLocal));
+			.then((authUri) => safeApp.connectAuthorised(this.handle, authUri))
+			.then(_ => safeApp.refreshContainersPermissions(this.handle));
 		}
 
 		getContainersPermissions() {
-			return this.handlePromise.then((appHandle) => safeApp.getContainersPermissions(appHandle)); // Promise<Array<ContainerPerms>>
+			return this.then(_ => safeApp.getContainersPermissions(this.handle)); // Promise<Array<ContainerPerms>>
 		}
 
 		getOwnContainer() {
-			var homeContainerMD = new MutableData(this);
-			homeContainerMD.handlePromise = this.handlePromise.then((appHandle) => safeApp.getOwnContainer(appHandle));
+			var homeContainerMD;
+			this.then(_ => safeApp.getOwnContainer(this.handle))
+			.then((mdHandle) => {
+				homeContainerMD = new MutableData(mdHandle, this);
+			});
 			return homeContainerMD;
 		}
 
 		newPermissionsSet() {
-			var newSet = new PermissionsSet();
-			newSet.handlePromise = this.handlePromise.then((appHandle) => safeMutableData.newPermissionSet(appHandle));
+			var newSet;
+			this.then(_ => safeMutableData.newPermissionSet(this.handle))
+			.then((psHandle) => {
+				newSet = new PermissionsSet(psHandle, this);
+			});
 			return newSet;
 		}
 
 		newMutation() {
-			var newMut = new Mutation();
-			newMut.handlePromise = this.handlePromise.then((appHandle) => safeMutableData.newMutation(appHandle));
+			var newMut;
+			this.then(_ => safeMutableData.newMutation(this.handle))
+			.then((mHandle) => {
+				newMut = new Mutation(mHandle, this);
+			});
 			return newMut;
 		}
 
-		quickRandomPublic(data) {
+		quickRandomPublic(data, name, desc) {
 			//  looks like this does not get changed?
 			const typeTag = 15000;
 
-			var publicMD = new MutableData(this);
+			var publicMD;
 			console.log('new publicMD: ', publicMD);
 			this.then(_ => safeMutableData.newRandomPublic(this.handleLocal, typeTag))
 			.then((mdata) => {
+				publicMD = new MutableData(mdata, this);
 				console.log('Random MD handle: ', mdata);
-				publicMD.mdHandle = mdata;
-				return safeMutableData.quickSetup(mdata, data);
+				return safeMutableData.quickSetup(mdata, data, name, desc);
 			})
-			.then(_ => {
-				console.log('MD handle was setup: ', publicMD.mdHandle);
-				return publicMD.mdHandle;
-			});
+			.then(_ => console.log('MD handle was setup: ', publicMD.mdHandle));
 			return publicMD;
 		}
 
-		free() {
-			this.then(_ => {
-				if ((this.handleLocal != undefined) && (this.handleLocal != null)) {
-					safeApp.free(this.handleLocal);
-					console.log('App handle freed: ', this.handleLocal);
-				}
-				this.handleLocal = undefined;
-				this.handlePromise = null;
-				console.log('App.free() completed');
-			});
-		}
 	};
 
 	var MutableData = class extends HandleSynchronisedSafeChild {
 
 		getPermissions() {
-			var permissions = new Permissions();
-			permissions.handlePromise = this.handlePromise.then((mdHandle) => safeMutableData.getPermissions(mdHandle));
+			var permissions;
+			this.then(_ => safeMutableData.getPermissions(this.handle))
+			.then((pHandle) => {
+ 				permissions = new Permissions(pHandle, this);
+			});
 			return permissions;
 		}
 
 		getEntries() {
-			var entries = new Entries();
-			entries.handlePromise = this.handlePromise.then((mdHandle) => safeMutableData.getEntries(mdHandle));
+			var entries;
+			this.then(_ => safeMutableData.getEntries(this.mdHandle))
+			.then((enHandle) => {
+ 				entries = new Entries(enHandle, this);
+			});
+			console.log('New Entries: ', entries);
 			return entries;
 		}
 
 		applyEntriesMutation(mutation) {
-			this.handlePromise = Promise.all([this.handlePromise, mutation.handlePromise])
-				.then(([mdHandle, mutHandle]) => safeMutableData.applyEntriesMutation(mdHandle, mutHandle)
-					.then(() => mdHandle));
+			return this.all([this.handlePromise, mutation.handlePromise])
+			.then(([mdHandle, mutHandle]) => safeMutableData.applyEntriesMutation(mdHandle, mutHandle))
+			.then(_ => mdHandle);
 		}
 
 		put(permissions, entries) {
-			this.handlePromise = Promise.all([this.handlePromise, permissions.handlePromise, entries.handlePromise])
-				.then(([mdHandle, permHandle, entriesHandle]) => safeMutableData.put(mdHandle, permHandle, entriesHandle)
-					.then(() => mdHandle));
+			return this.all([this.handlePromise, permissions.handlePromise, entries.handlePromise])
+			.then(([mdHandle, permHandle, entriesHandle]) => safeMutableData.put(mdHandle, permHandle, entriesHandle))
+			.then(_ => mdHandle);
 		}
 
-		getString(key) {
+		get(key) {
 			return this.then(_ => {
 				console.log('Fetching key from handle: ', key, this.mdHandle);
 				return safeMutableData.get(this.mdHandle, key);
-			})
+			});
+		}
+
+		getString(key) {
+			return this.get(key)
 			.then((val) => {
 				return val.buf.toString();
 			});
 		}
 
-		free() {
-			this.then((mdHandle) => {
-				// Nothing to do if no handles are provided
-				if ((mdHandle === undefined) && (this.mdHandle === undefined)) {
-					console.log('No MD to free.');
-				};
-				// only this.mdHandle is defined, clear it.
-				if ((mdHandle === undefined) && (this.mdHandle != undefined)) {
-					safeMutableData.free(this.mdHandle);
-					console.log('Freed MD: ', this.mdHandle);
-					this.mdHandle = undefined;
-				};
-				// only mdHandle is defined, clear it.
-				if ((mdHandle != undefined) && (this.mdHandle === undefined)) {
-					safeMutableData.free(mdHandle);
-					console.log('Freed MD: ', mdHandle);
-				};
-				// both are defined and equal, clear both.
-				if ((mdHandle != undefined) && (this.mdHandle != undefined) && (mdHandle == this.mdHandle)) {
-					safeMutableData.free(mdHandle);
-					this.mdHandle = undefined;
-					console.log('Freed MD: ', mdHandle);
-				};
-				// if both are defined and different, unclear how to proceed.
-				if ((mdHandle != undefined) && (this.mdHandle != undefined) && (mdHandle != this.mdHandle)) throw 'Cannot decide which handle to free!';
-			});
-		}
-
 	};
 
-	var Permissions = class extends HandleSynchronisedSafeObject {
+	var Permissions = class extends HandleSynchronisedSafeChild {
 
 		insertPermissionsSet(signKey, permissionsSet) {
 
-			this.handlePromise = Promise.all([this.handlePromise, signKey ? signKey.handlePromise : null, permissionsSet.handlePromise])
-				.then(([permHandle, skHandle, pSetHandle]) => {
-
-					console.log('skHandle:'+skHandle);
-					return safeMutableDataPermissions.insertPermissionsSet(permHandle, skHandle, pSetHandle)
-						.then(() => permHandle);
-				});
+			return this.all([this.handlePromise, signKey ? signKey.handlePromise : null, permissionsSet.handlePromise])
+			.then(([permHandle, skHandle, pSetHandle]) => {
+					console.log('skHandle: ',skHandle);
+					return safeMutableDataPermissions.insertPermissionsSet(permHandle, skHandle, pSetHandle);
+			})
+			.then(_ => permHandle);
 		}
 
 	};
 
-	var Entries = class extends HandleSynchronisedSafeObject {
+	var Entries = class extends HandleSynchronisedSafeChild {
+
+		len() {
+			return this.then(_ => safeMutableDataEntries.len(this.handle));
+		}
 
 		insert(key, value) {
-			this.handlePromise = this.handlePromise.then((entriesHandle) => safeMutableDataEntries.insert(entriesHandle, key, value)
-				.then(() => entriesHandle));
+			return this.then(_ => safeMutableDataEntries.insert(this.handle, key, value));
+		}
+
+		forEach(f) {
+			return this.then(_ => safeMutableDataEntries.forEach(this.handle, f));
 		}
 
 	};
 
-	var PermissionsSet = class extends HandleSynchronisedSafeObject {
+	var PermissionsSet = class extends HandleSynchronisedSafeChild {
 
 		setAllow(action) {
-			this.handlePromise = this.handlePromise.then((pSetHandle) => safeMutableDataPermissionsSet.setAllow(pSetHandle, action)
-				.then(() => pSetHandle));
+			return this.then((pSetHandle) => safeMutableDataPermissionsSet.setAllow(pSetHandle, action))
+			.then(_ => pSetHandle);
 		}
 
 	};
 
-	var Mutation = class extends HandleSynchronisedSafeObject {
+	var Mutation = class extends HandleSynchronisedSafeChild {
 
 		insert(key, value) {
-			this.handlePromise = this.handlePromise.then((mutHandle) => safeMutableDataMutation.insert(mutHandle, key, value)
-				.then(() => mutHandle));
+			return this.then((mutHandle) => safeMutableDataMutation.insert(mutHandle, key, value))
+			.then(_ => mutHandle);
 		}
 
 	};
 
-	var SignKey = class extends HandleSynchronisedSafeObject {
+	var SignKey = class extends HandleSynchronisedSafeChild {
 
 	};
 
 
 	var initialiseApp = function(appInfo, networkStateCallback, enableLog) {
 
-		var app = new App();
+		var app;
 
-		app.handlePromise = safeApp.initialise(appInfo, networkStateCallback, enableLog);
-		app.then((appHandle) => {
+		let promise = safeApp.initialise(appInfo, networkStateCallback, enableLog);
+		promise.then((appHandle) => {
+			app = new App(promise, appHandle);
 			console.log('SAFEApp instance initialised and handle returned: ', appHandle); // DEBUG
-			return appHandle;
+			return app;
 		});
 
 		return app; // App
