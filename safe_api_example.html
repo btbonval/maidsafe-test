@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<HTML LANG="en">
+  <HEAD>
+    <META CHARSET="utf-8"/>
+    <META NAME="viewport" CONTENT="width=device-width, initial-scale=1.0">
+    <TITLE>safe_api example</TITLE>
+    <SCRIPT src="dist/safe_api.js"></SCRIPT>
+  </HEAD>
+  <BODY>
+    <NOSCRIPT><P>Unfortunately JavaScript is required for this player. Your is disabled! You must now determine whether playing music through this app or enabling JavaScript is more important to you.</P></NOSCRIPT>
+    <DIV>
+      <P>List output</P>
+      <UL id="file_list"></UL>
+    </DIV>
+
+    <SCRIPT>
+      var file_list = document.getElementById('file_list');
+      function populate_file_list(file) {
+        var item = document.createElement("LI");
+        item.textContent = file;
+        file_list.appendChild(item);
+      }
+
+      var test_func = function () {
+	let app_info = {
+          'id': 'com.bbonvallet.maidsafe.safe_api.example',
+          'name': 'SAFE API Example',
+          'version': '0.0.1',
+          'vendor': 'Bryan Bonvallet Consulting, LLC'
+        }
+
+	let app = safeAPI.initialiseApp(app_info);
+	app.authoriseAndConnect({_public: ['Read']});
+	let md = app.quickRandomPublic({'this': 'is', 'a': 'test'});
+	md.getString('this').then(console.log);
+	md.getString('a').then(console.log);
+	let ent = md.getEntries();
+	ent.forEach(populate_file_list);
+	ent.free();
+	app.then(_ => console.log('All done!'));
+	md.free();
+
+	let store_md = app.quickRandomPublic({});
+	let directory = store_md.asNFS();
+	let file = directory.create('this is the data!');
+	file.metadata((data) => console.log(data)); // skipped?
+	file.free();
+	file = directory.create('more data fresh off the presses');
+	file.metadata((data) => console.log(data)); // skipped?
+	file.free();
+	file = directory.create('this data is on the network');
+	file.metadata((data) => console.log(data)); // skipped?
+	file.free();
+	ent = store_md.getEntries();
+	ent.forEach(populate_file_list); // nothing.
+	ent.len((size) => console.log(size)); // skipped?
+	ent.free();
+	directory.free();
+	store_md.free()
+	
+	app.catch((err) => console.log(err));
+	app.free();
+      }
+      if (window.safeApp === undefined) {
+        test_func = function () {
+          console.log('Missing window.safeApp!');
+        };
+      }
+
+      test_func();
+    </SCRIPT>
+
+  </BODY>
+</HTML>
