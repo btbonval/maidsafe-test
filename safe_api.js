@@ -4,7 +4,29 @@ window.safeAPI = {};
 (function(API) {
 	"use strict"
 
-	var SynchronizedCommonCode = class {
+	var checkHandle = function(myHandle) {
+		if ((myHandle === undefined) || (myHandle === null)) {
+			throw 'Empty handle passed to ' + this.whoami();
+		}
+		console.log(this.whoami(), 'initialised and handle returned:', myHandle); // DEBUG
+	}
+
+
+	var promiseChain = {
+
+		lastPromise: null,
+
+		addPromise: function(promise) {
+			this.lastPromise = promise;
+		},
+
+		addHandlers: function(onFulfilled, onRejected) {
+			this.lastPromise = this.lastPromise.then(onFulfilled, onRejected);
+		}
+
+	};
+
+	var HandleSynchronisedSafeObject = class {
 
 		free() {
 			this.then(_ => {
@@ -26,64 +48,28 @@ window.safeAPI = {};
 			return this.constructor.name.toString();
 		}
 
-		checkHandle(myHandle) {
-			if ((myHandle === undefined) || (myHandle === null)) {
-				throw 'Empty handle passed to ' + this.whoami();
-			}
-			console.log(this.whoami(), 'initialised and handle returned:', myHandle); // DEBUG
-		}
-
-	}
-
-	var HandleSynchronisedSafeRoot = class extends SynchronizedCommonCode {
-
 		constructor(handlePromise) {
 			super();
-			// Used for consistent `new Class(Promise, this.root)`
-			this.root = this;
-			this.promiseChain = handlePromise.then((myHandle) => {
+			promiseChain.addPromise(handlePromise.then((myHandle) => {
 				this.checkHandle(myHandle);
 				this.handle = myHandle;
-			});
+			}));
 		}
 
 		then(onFulfilled, onRejected) {
-			this.promiseChain = this.promiseChain.then(onFulfilled, onRejected);
+			promiseChain.addHandlers(onFulfilled, onRejected);
 			return this;
 		}
 
 		catch(onRejected) {
-			this.promiseChain = this.promiseChain.catch(onRejected);
+			promiseChain.addHandlers(undefined, onRejected);
 			return this;
 		}
 
 	};
 
-	var HandleSynchronisedSafeChild = class extends SynchronizedCommonCode {
 
-		constructor(handlePromise, root) {
-			super();
-			this.root = root;
-			root.then(handlePromise)
-			.then((myHandle) => {
-				this.checkHandle(myHandle);
-				this.handle = myHandle;
-			});
-		}
-
-		then(onFulfilled, onRejected) {
-			this.root.then(onFulfilled, onRejected);
-			return this;
-		}
-
-		catch(onRejected) {
-			this.root.catch(onRejected);
-			return this;
-		}
-
-	};
-
-	var App = class extends HandleSynchronisedSafeRoot {
+	var App = class extends HandleSynchronisedSafeObject {
 
 		authoriseAndConnect(permissions, options) {
 			return this.then(_ => {
@@ -99,22 +85,22 @@ window.safeAPI = {};
 		}
 
 		getOwnContainer() {
-			return new MutableData(_ => safeApp.getOwnContainer(this.handle), this.root);
+			return new MutableData(_ => safeApp.getOwnContainer(this.handle));
 		}
 
 		newPermissionsSet() {
-			return new PermissionsSet(_ => safeMutableData.newPermissionSet(this.handle), this.root);
+			return new PermissionsSet(_ => safeMutableData.newPermissionSet(this.handle));
 		}
 
 		newMutation() {
-			return new Mutation(_ => safeMutableData.newMutation(this.handle), this.root);
+			return new Mutation(_ => safeMutableData.newMutation(this.handle));
 		}
 
 		quickRandomPublic(data, name, desc) {
 			//  looks like this does not get changed?
 			const typeTag = 15000;
 
-			let publicMD = new MutableData(_ => safeMutableData.newRandomPublic(this.handle, typeTag), this.root);
+			let publicMD = new MutableData(_ => safeMutableData.newRandomPublic(this.handle, typeTag));
 			publicMD.quickSetup(data, name, desc);
 			publicMD.then(_ => console.log('Successfully created and setup random public.'));
 			return publicMD;
@@ -122,18 +108,18 @@ window.safeAPI = {};
 
 	};
 
-	var MutableData = class extends HandleSynchronisedSafeChild {
+	var MutableData = class extends HandleSynchronisedSafeObject {
 
 		quickSetup(data, name, desc) {
 			return this.then(_ => safeMutableData.quickSetup(this.handle, data, name, desc));
 		}
 
 		getPermissions() {
-			return new Permissions(_ => safeMutableData.getPermissions(this.handle), this.root);
+			return new Permissions(_ => safeMutableData.getPermissions(this.handle));
 		}
 
 		getEntries() {
-			return new Entries(_ => safeMutableData.getEntries(this.handle), this.root);
+			return new Entries(_ => safeMutableData.getEntries(this.handle));
 		}
 
 		/* haven't reviewed this -BTB
@@ -165,13 +151,13 @@ window.safeAPI = {};
 		}
 
 		asNFS() {
-			return new NfsEmulation(_ => safeMutableData.emulateAs(this.handle, 'NFS'), this.root);
+			return new NfsEmulation(_ => safeMutableData.emulateAs(this.handle, 'NFS'));
 		}
 
 	};
 
 	/* not reviewed -BTB
-	var Permissions = class extends HandleSynchronisedSafeChild {
+	var Permissions = class extends HandleSynchronisedSafeObject	 {
 
 		insertPermissionsSet(signKey, permissionsSet) {
 
@@ -186,7 +172,7 @@ window.safeAPI = {};
 	};
 	*/
 
-	var Entries = class extends HandleSynchronisedSafeChild {
+	var Entries = class extends HandleSynchronisedSafeObject {
 
 		len() {
 			return this.then(_ => safeMutableDataEntries.len(this.handle));
@@ -202,7 +188,7 @@ window.safeAPI = {};
 
 	};
 
-	var PermissionsSet = class extends HandleSynchronisedSafeChild {
+	var PermissionsSet = class extends HandleSynchronisedSafeObject {
 
 		setAllow(action) {
 			return this.then((pSetHandle) => safeMutableDataPermissionsSet.setAllow(pSetHandle, action))
@@ -211,7 +197,7 @@ window.safeAPI = {};
 
 	};
 
-	var Mutation = class extends HandleSynchronisedSafeChild {
+	var Mutation = class extends HandleSynchronisedSafeObject {
 
 		insert(key, value) {
 			return this.then((mutHandle) => safeMutableDataMutation.insert(mutHandle, key, value))
@@ -220,14 +206,14 @@ window.safeAPI = {};
 
 	};
 
-	var NfsEmulation = class extends HandleSynchronisedSafeChild {
+	var NfsEmulation = class extends HandleSynchronisedSafeObject {
 
 		create(content) {
-			return new NfsFile(_ => safeNfs.create(this.handle, content), this.root);
+			return new NfsFile(_ => safeNfs.create(this.handle, content));
 		}
 
 		fetch(fileName) {
-			return new NfsFile(_ => safeNfs.fetch(this.handle, fileName), this.root);
+			return new NfsFile(_ => safeNfs.fetch(this.handle, fileName));
 		}
 
 		insert(fileHandle, fileName) {
@@ -244,16 +230,15 @@ window.safeAPI = {};
 
 		open(fileName, read, append, replace) {
 			let mode = 0;
-			if ((read != undefined) && (read != null) && (read != false)) mode = mode + 4;
-			if ((append != undefined) && (append != null) && (append != false)) mode = mode + 2;
-			if ((replace != undefined) && (replace != null) && (replace != false)) mode = mode + 1;
-			return new NfsFile(_ => safeNfs.open(this.handle, fileName, mode), this.root);
-			
+			if ((typeof read !== 'undefined') && read) mode = mode + 4;
+			if ((typeof append !== 'undefined') && append) mode = mode + 2;
+			if ((typeof replace !== 'undefined') && replace) mode = mode + 1;
+			return new NfsFile(_ => safeNfs.open(this.handle, fileName, mode));
 		}
 
 	};
 
-	var NfsFile = class extends HandleSynchronisedSafeChild {
+	var NfsFile = class extends HandleSynchronisedSafeObject {
 
 		size() {
 			return this.then(_ => safeNfsFile.size(this.handle));
@@ -271,7 +256,7 @@ window.safeAPI = {};
 			return this.then(_ => safeNfsFile.metadata(this.handle));
 		}
 
-		xor() {
+		dataMapName() {
 			return this.metadata().then(obj => obj.dataMapName);
 		}
 
