@@ -223,11 +223,11 @@ window.safeAPI = {};
 	var NfsEmulation = class extends HandleSynchronisedSafeChild {
 
 		create(content) {
-			return new NfsFile(_ => safeNfs.create(this.handle, content), this);
+			return new NfsFile(_ => safeNfs.create(this.handle, content), this.root);
 		}
 
 		fetch(fileName) {
-			return new NfsFile(_ => safeNfs.fetch(this.handle, fileName), this);
+			return new NfsFile(_ => safeNfs.fetch(this.handle, fileName), this.root);
 		}
 
 		insert(fileHandle, fileName) {
@@ -247,7 +247,7 @@ window.safeAPI = {};
 			if ((read != undefined) && (read != null) && (read != false)) mode = mode + 4;
 			if ((append != undefined) && (append != null) && (append != false)) mode = mode + 2;
 			if ((replace != undefined) && (replace != null) && (replace != false)) mode = mode + 1;
-			return new NfsFile(_ => safeNfs.open(this.handle, fileName, mode), this);
+			return new NfsFile(_ => safeNfs.open(this.handle, fileName, mode), this.root);
 			
 		}
 
