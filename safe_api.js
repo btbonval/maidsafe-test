@@ -234,7 +234,6 @@ window.safeAPI = {};
 			if ((typeof append !== 'undefined') && append) mode = mode + 2;
 			if ((typeof replace !== 'undefined') && replace) mode = mode + 1;
 			return new NfsFile(_ => safeNfs.open(this.handle, fileName, mode));
-			
 		}
 
 	};
