@@ -35,6 +35,9 @@
 	md.getString('this').then(console.log);
 	md.getString('a').then(console.log);
 	let ent = md.getEntries();
+	if (!md.getString('a').equals('test')) {
+		console.log('error');
+	}
 	ent.forEach(populate_file_list);
 	ent.free();
 	app.then(_ => console.log('All done!'));
