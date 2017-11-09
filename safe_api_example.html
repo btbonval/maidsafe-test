@@ -21,53 +21,107 @@
         file_list.appendChild(item);
       }
 
-      var test_func = function () {
+      var make_datastore = function (app, my_md) {
+        // if no datastore, generate datastore:
+        let store_md = app.quickRandomPublic({});
+        let directory = store_md.asNFS();
+
+        // example file for datastore
+        let file = directory.create('this is the data!');
+        file.getHandle();
+        directory.insert('first.txt');
+        file.free();
+
+        // save datastore
+        store_md.saveToMdAs(my_md, 'datastore');
+
+        directory.free();
+        store_md.free();
+      }
+
+      var main_func = function () {
 	let app_info = {
           'id': 'com.bbonvallet.maidsafe.safe_api.example',
           'name': 'SAFE API Example',
           'version': '0.0.1',
           'vendor': 'Bryan Bonvallet Consulting, LLC'
-        }
+	}
 
 	let app = safeAPI.initialiseApp(app_info);
-	app.authoriseAndConnect({_public: ['Read']});
+	app.setDebug(75);
+	app.authoriseAndConnect({_public: ['Read']}, {'own_container': true});
+
+	app.log('Beginning MD test.');
 	let md = app.quickRandomPublic({'this': 'is', 'a': 'test'});
-	md.getString('this').then(console.log);
-	md.getString('a').then(console.log);
-	let ent = md.getEntries();
+	md.getString('this').log('should be "is":').log();
+	md.getString('a').log('should be "test":').log();
+	md.free();
+	app.log('Initial MD test done!');
+
+	app.log('Beginning ID test.');
+	let id_writer = app.newImmutableData();
+	id_writer.write('test of the immutable data contents!');
+	let cipher = app.newPublicCipher();
+	cipher.getHandle();
+	id_writer.closeWriter();
+	cipher.free();
+
+	id_writer.getXorName();
+	let id_reader = app.loadImmutableData();
+	id_reader.readString().log('ImmutableData contents:').log();
+	id_reader.free();
+	app.log('Initial ID test done!');
+
+	app.log('getting Own container MD');
+	let my_md = app.getOwnContainer();
+	my_md.catch((err) => {
+	  if (err.toString().indexOf('Container not found') >= 0) {
+	    // Container was not found. Indicate how to fix.
+	    my_md._debug(0, 'Error: Please set own_container to true in authoriseAndConnect() options.');
+	  }
+	  // Continue the error flowing.
+	  throw err;
+	});
+	my_md.getVersion().log('own container version:').log();
+
+	my_md.get('datastore');
+	my_md.datastore_exists = true;
+	my_md.catch((err) => {
+	  if (err.toString().indexOf('Requested entry not found') >= 0) {
+	    my_md._debug(75, 'Library is missing. Create it!');
+	    my_md.datastore_exists = false;
+	  } else {
+	    throw err;
+	  }
+	});
+	my_md.skipToLabelIf('DATASTORE_MADE', 'datastore_exists');
+
+	my_md.log('making datastore');
+	make_datastore(app, my_md);
+
+	app.markLabel('DATASTORE_MADE');
+
+	store_md = my_md.loadMdFrom('datastore');
+
+	// list files in datastore
+	ent = store_md.getEntries();
 	ent.forEach(populate_file_list);
 	ent.free();
-	app.then(_ => console.log('All done!'));
-	md.free();
 
-	let store_md = app.quickRandomPublic({});
-	let directory = store_md.asNFS();
-	let file = directory.create('this is the data!');
-	file.metadata((data) => console.log(data)); // skipped?
-	file.free();
-	file = directory.create('more data fresh off the presses');
-	file.metadata((data) => console.log(data)); // skipped?
-	file.free();
-	file = directory.create('this data is on the network');
-	file.metadata((data) => console.log(data)); // skipped?
-	file.free();
-	ent = store_md.getEntries();
-	ent.forEach(populate_file_list); // nothing.
-	ent.len((size) => console.log(size)); // skipped?
-	ent.free();
-	directory.free();
 	store_md.free()
-	
+
+	app.resetDebug();
+	app.log('App completed.');
 	app.catch((err) => console.log(err));
 	app.free();
       }
       if (window.safeApp === undefined) {
-        test_func = function () {
+        main_func = function () {
           console.log('Missing window.safeApp!');
         };
       }
 
-      test_func();
+      main_func();
     </SCRIPT>
 
   </BODY>
